@@ -59,17 +59,23 @@
 
 ## 3. 次にやるべき作業・コマンド（別PCで開いた直後に実行すること）
 
-別のPCでこのプロジェクトを開いた場合は、ターミナルで以下のコマンドを実行してください：
+### 📦 GitHubリポジトリURL
+[https://github.com/710yuto02-sketch/smoking-map-app](https://github.com/710yuto02-sketch/smoking-map-app)
+
+別のPCで新しく作業を始める場合は、以下の手順でダウンロード・起動できます：
 
 ```bash
-# 1. 依存ライブラリのインストール
+# 1. リポジトリをクローン（ダウンロード）
+git clone https://github.com/710yuto02-sketch/smoking-map-app.git
+
+# 2. フォルダに移動
+cd smoking-map-app
+
+# 3. 依存ライブラリのインストール
 npm install
 
-# 2. 開発サーバーの起動（ブラウザで http://localhost:5173 を開く）
+# 4. 開発サーバーの起動（ブラウザで http://localhost:5173 を開く）
 npm run dev
-
-# 3. （本番公開・ビルド確認を行う場合）
-npm run build
 ```
 
 ※Google Maps APIキーをお持ちの場合は、`.env.example` をコピーして `.env` を作成し、`VITE_GOOGLE_MAPS_API_KEY=あなたのキー` を入力すると、本物のGoogle Maps航空写真や道路網に即座に切り替わります。
