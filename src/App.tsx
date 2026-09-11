@@ -8,12 +8,14 @@ import { FilterBar } from './components/filter/FilterBar';
 import { SmokingMap } from './components/map/SmokingMap';
 import { NewSpotModal } from './components/post/NewSpotModal';
 import { SpotDetailDrawer } from './components/drawer/SpotDetailDrawer';
+import { TermsModal } from './components/common/TermsModal';
 import { db, auth, isFirebaseConfigured } from './lib/firebase';
 import { 
   collection, 
   onSnapshot, 
   addDoc, 
   updateDoc, 
+  deleteDoc,
   doc, 
   increment, 
   query, 
@@ -22,6 +24,9 @@ import {
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export const App: React.FC = () => {
+  // 0. 利用規約モーダル表示状態
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
   // 1. ユーザー認証状態（未ログイン時は認証画面を強制表示）
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('smoke_user');
@@ -273,6 +278,75 @@ export const App: React.FC = () => {
     }
   };
 
+  // 喫煙所ピンの削除処理（作成者本人のみ）
+  const handleDeleteSpot = async (spotId: string) => {
+    const updated = smokingAreas.filter((area) => area.id !== spotId);
+    setSmokingAreas(updated);
+    localStorage.setItem('smoke_spots', JSON.stringify(updated));
+
+    if (selectedSpot && selectedSpot.id === spotId) {
+      setSelectedSpot(null);
+      setRoutingToSpot(null);
+      setRouteInfo(null);
+    }
+
+    if (isFirebaseConfigured && db && !spotId.startsWith('spot-')) {
+      try {
+        await deleteDoc(doc(db, 'smoking_areas', spotId));
+      } catch (err) {
+        console.warn('Firestore deleteDoc spot failed:', err);
+      }
+    }
+  };
+
+  // 口コミレビューの削除処理（投稿者本人のみ）
+  const handleDeleteReview = async (reviewId: string) => {
+    const updated = reviews.filter((r) => r.id !== reviewId);
+    setReviews(updated);
+    localStorage.setItem('smoke_reviews', JSON.stringify(updated));
+
+    if (isFirebaseConfigured && db && !reviewId.startsWith('rev-')) {
+      try {
+        await deleteDoc(doc(db, 'reviews', reviewId));
+      } catch (err) {
+        console.warn('Firestore deleteDoc review failed:', err);
+      }
+    }
+  };
+
+  // 不適切・規約違反の通報処理
+  const handleReportInappropriate = async (spotId: string) => {
+    const updated = smokingAreas.map((area) => {
+      if (area.id === spotId) {
+        return {
+          ...area,
+          inappropriate_report_count: (area.inappropriate_report_count || 0) + 1,
+        };
+      }
+      return area;
+    });
+
+    setSmokingAreas(updated);
+    localStorage.setItem('smoke_spots', JSON.stringify(updated));
+
+    if (selectedSpot && selectedSpot.id === spotId) {
+      setSelectedSpot({
+        ...selectedSpot,
+        inappropriate_report_count: (selectedSpot.inappropriate_report_count || 0) + 1,
+      });
+    }
+
+    if (isFirebaseConfigured && db && !spotId.startsWith('spot-')) {
+      try {
+        await updateDoc(doc(db, 'smoking_areas', spotId), {
+          inappropriate_report_count: increment(1),
+        });
+      } catch (err) {
+        console.warn('Firestore updateDoc inappropriate report failed:', err);
+      }
+    }
+  };
+
   // ログアウト
   const handleLogout = async () => {
     localStorage.removeItem('smoke_user');
@@ -311,6 +385,7 @@ export const App: React.FC = () => {
         onLogout={handleLogout}
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
+        onOpenTerms={() => setShowTermsModal(true)}
       />
 
       {/* チップ型フィルター */}
@@ -366,8 +441,17 @@ export const App: React.FC = () => {
           onAddReview={handleAddReview}
           onVerifySpot={handleVerifySpot}
           onReportClosed={handleReportClosed}
+          onDeleteSpot={handleDeleteSpot}
+          onDeleteReview={handleDeleteReview}
+          onReportInappropriate={handleReportInappropriate}
         />
       )}
+
+      {/* 利用規約 & プライバシーポリシーモーダル */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </div>
   );
 };

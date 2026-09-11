@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cigarette, Moon, Sun, LogOut, User } from 'lucide-react';
+import { Cigarette, Moon, Sun, LogOut, User, Info } from 'lucide-react';
 import type { UserProfile } from '../../types/database';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onLogout: () => void;
   isDark: boolean;
   onToggleTheme: () => void;
+  onOpenTerms: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   isDark,
   onToggleTheme,
+  onOpenTerms,
 }) => {
   return (
     <header
@@ -73,10 +75,31 @@ export const Header: React.FC<HeaderProps> = ({
           gap: '8px',
         }}
       >
+        {/* 利用規約・プライバシー方針ボタン */}
+        <button
+          onClick={onOpenTerms}
+          aria-label="利用規約・プライバシー方針"
+          title="利用規約 & プライバシー方針"
+          className="glass-panel"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-primary)',
+            boxShadow: 'var(--shadow-md)',
+          }}
+        >
+          <Info size={18} />
+        </button>
+
         {/* ダーク/ライトモード切替ボタン */}
         <button
           onClick={onToggleTheme}
           aria-label="テーマ切替"
+          title={isDark ? 'ライトモードに切替' : 'ダークモードに切替'}
           className="glass-panel"
           style={{
             width: '38px',

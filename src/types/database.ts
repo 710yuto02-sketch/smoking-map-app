@@ -33,6 +33,7 @@ export interface SmokingArea {
   last_verified_at?: string; // 最終利用確認日時 (生存確認)
   verified_count?: number;    // 今日・直近で吸えたと報告された回数
   closed_report_count?: number; // 撤去・閉鎖が通報された回数
+  inappropriate_report_count?: number; // 不適切・規約違反が通報された回数
 }
 
 // 3. レビュー型

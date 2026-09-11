@@ -3,7 +3,8 @@ import type { SmokingArea, Review, UserProfile, RouteInfo } from '../../types/da
 import { 
   X, Navigation, Flame, Wind, Home, Trees, Coins, DollarSign, 
   Star, MessageSquare, Camera, User, CornerUpRight, ExternalLink,
-  ThumbsUp, Building2, AlertTriangle, CheckCircle2, Clock
+  ThumbsUp, Building2, AlertTriangle, CheckCircle2, Clock,
+  Trash2, ShieldAlert
 } from 'lucide-react';
 
 interface SpotDetailDrawerProps {
@@ -17,6 +18,9 @@ interface SpotDetailDrawerProps {
   onAddReview: (review: Omit<Review, 'id' | 'created_at'>) => void;
   onVerifySpot?: (spotId: string) => void;
   onReportClosed?: (spotId: string) => void;
+  onDeleteSpot?: (spotId: string) => void;
+  onDeleteReview?: (reviewId: string) => void;
+  onReportInappropriate?: (spotId: string) => void;
 }
 
 export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
@@ -30,6 +34,9 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
   onAddReview,
   onVerifySpot,
   onReportClosed,
+  onDeleteSpot,
+  onDeleteReview,
+  onReportInappropriate,
 }) => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(5);
@@ -266,13 +273,36 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
           </div>
         </div>
 
-        {/* ワンタップ生存確認アクションボタン */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        {/* 不適切通報が多数ある場合の安全警告バッジ */}
+        {Boolean(spot.inappropriate_report_count && spot.inappropriate_report_count >= 3) && (
+          <div
+            style={{
+              padding: '8px 10px',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid var(--accent-danger)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: 'var(--accent-danger)',
+              fontWeight: 700,
+            }}
+          >
+            <ShieldAlert size={15} />
+            <span>⚠️ 複数のユーザーから規約違反・誤情報の通報が寄せられています</span>
+          </div>
+        )}
+
+        {/* 生存確認 ＆ 通報ボタン群 */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => onVerifySpot && onVerifySpot(spot.id)}
             style={{
-              flex: 1,
+              flex: '1 1 auto',
+              minWidth: '130px',
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
               backgroundColor: '#10b981',
@@ -293,6 +323,7 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
           <button
             type="button"
             onClick={() => onReportClosed && onReportClosed(spot.id)}
+            title="喫煙所が撤去・閉鎖されている場合"
             style={{
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
@@ -310,7 +341,65 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
             <AlertTriangle size={13} style={{ color: 'var(--text-muted)' }} />
             <span>撤去を通報</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('この喫煙所の情報に不適切な内容（虚偽、私有地、誹謗中傷など）が含まれていますか？\n通報を送信します。')) {
+                onReportInappropriate && onReportInappropriate(spot.id);
+              }
+            }}
+            title="利用規約に反する不適切な投稿を通報"
+            style={{
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--bg-app)',
+              border: '1px solid var(--border-medium)',
+              color: 'var(--text-secondary)',
+              fontSize: '11px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+            }}
+          >
+            <ShieldAlert size={13} style={{ color: 'var(--accent-amber)' }} />
+            <span>不適切を通報</span>
+          </button>
         </div>
+
+        {/* 投稿者本人の場合のみ表示される削除ボタン */}
+        {currentUser && spot.created_by && spot.created_by === currentUser.id && (
+          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-subtle)' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('【確認】あなたが投稿したこの喫煙所ピンを削除しますか？\n（この操作は取り消せません）')) {
+                  onDeleteSpot && onDeleteSpot(spot.id);
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: 'var(--accent-danger)',
+                fontSize: '11px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              <Trash2 size={13} />
+              <span>自分が投稿したこのピンを削除する</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 写真がある場合の表示 */}
@@ -597,10 +686,34 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
                       {rev.user_name || 'スモーカー'}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '2px', color: 'var(--accent-amber)' }}>
-                    {Array.from({ length: rev.rating }).map((_, i) => (
-                      <Star key={i} size={12} fill="currentColor" />
-                    ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '2px', color: 'var(--accent-amber)' }}>
+                      {Array.from({ length: rev.rating }).map((_, i) => (
+                        <Star key={i} size={12} fill="currentColor" />
+                      ))}
+                    </div>
+                    {currentUser && rev.user_id === currentUser.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('この口コミレビューを削除しますか？')) {
+                            onDeleteReview && onDeleteReview(rev.id);
+                          }
+                        }}
+                        title="自分の口コミを削除"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          padding: '2px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={12} style={{ color: 'var(--accent-danger)' }} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
