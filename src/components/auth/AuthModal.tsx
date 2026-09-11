@@ -4,7 +4,8 @@ import { auth, isFirebaseConfigured } from '../../lib/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  updateProfile 
+  updateProfile,
+  signInAnonymously
 } from 'firebase/auth';
 import type { UserProfile } from '../../types/database';
 
@@ -20,6 +21,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const formatAuthError = (err: any): string => {
+    const msg = err?.message || String(err);
+    if (msg.includes('auth/configuration-not-found') || msg.includes('CONFIGURATION_NOT_FOUND')) {
+      return 'Firebase Console で「Authentication（認証）」がまだ開始されていません。コンソール画面で「始める」をクリックし、「メール/パスワード」または「匿名」を有効にしてください。';
+    }
+    if (msg.includes('auth/email-already-in-use')) {
+      return 'このメールアドレスは既に登録されています。「ログイン」をお試しください。';
+    }
+    if (msg.includes('auth/weak-password')) {
+      return 'パスワードが短すぎます。6文字以上の英数字を入力してください。';
+    }
+    if (msg.includes('auth/invalid-email')) {
+      return 'メールアドレスの形式が正しくありません。';
+    }
+    if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password') || msg.includes('auth/user-not-found')) {
+      return 'メールアドレスまたはパスワードが正しくありません。';
+    }
+    return msg || '認証に失敗しました。入力内容をお確かめください。';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -34,22 +55,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
             await updateProfile(userCredential.user, { displayName });
           }
           const user = userCredential.user;
-          onLoginSuccess({
+          const userObj: UserProfile = {
             id: user.uid,
             email: user.email || email,
             display_name: displayName || user.email?.split('@')[0] || 'スモーカー',
             created_at: new Date().toISOString(),
-          });
+          };
+          localStorage.setItem('smoke_user', JSON.stringify(userObj));
+          onLoginSuccess(userObj);
         } else {
           // Firebase ログイン
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const user = userCredential.user;
-          onLoginSuccess({
+          const userObj: UserProfile = {
             id: user.uid,
             email: user.email || email,
             display_name: user.displayName || user.email?.split('@')[0] || 'スモーカー',
             created_at: new Date().toISOString(),
-          });
+          };
+          localStorage.setItem('smoke_user', JSON.stringify(userObj));
+          onLoginSuccess(userObj);
         }
       } else {
         // デモモード（APIキー未設定でもすぐにお試し可能）
@@ -64,14 +89,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
       }
     } catch (err: any) {
       console.warn('Auth error:', err);
-      setErrorMsg(err.message || '認証に失敗しました。入力内容をお確かめください。');
+      setErrorMsg(formatAuthError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  // ワンクリック・ゲストログイン機能（初心者がすぐに体験できるように）
-  const handleQuickDemoLogin = () => {
+  // ワンクリック・ゲストログイン機能（Firebase匿名認証と安全に連動）
+  const handleQuickDemoLogin = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      if (isFirebaseConfigured && auth) {
+        // Firebase の匿名ログインを試行
+        const userCredential = await signInAnonymously(auth);
+        const user = userCredential.user;
+        const demoUser: UserProfile = {
+          id: user.uid,
+          email: 'guest@smokespot.jp',
+          display_name: 'ゲストスモーカー',
+          created_at: new Date().toISOString(),
+        };
+        localStorage.setItem('smoke_user', JSON.stringify(demoUser));
+        onLoginSuccess(demoUser);
+        return;
+      }
+    } catch (err: any) {
+      console.warn('Firebase anonymous login fallback:', err);
+      // Firebaseで匿名認証が未有効の場合でも、ローカルフォールバックで体験を継続可能にする
+    } finally {
+      setLoading(false);
+    }
+
+    // フォールバックデモユーザー
     const demoUser: UserProfile = {
       id: 'demo-user-guest',
       email: 'demo@smokespot.jp',
@@ -81,6 +131,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
     localStorage.setItem('smoke_user', JSON.stringify(demoUser));
     onLoginSuccess(demoUser);
   };
+
 
   return (
     <div

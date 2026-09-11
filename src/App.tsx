@@ -8,7 +8,7 @@ import { FilterBar } from './components/filter/FilterBar';
 import { SmokingMap } from './components/map/SmokingMap';
 import { NewSpotModal } from './components/post/NewSpotModal';
 import { SpotDetailDrawer } from './components/drawer/SpotDetailDrawer';
-import { db, isFirebaseConfigured } from './lib/firebase';
+import { db, auth, isFirebaseConfigured } from './lib/firebase';
 import { 
   collection, 
   onSnapshot, 
@@ -19,6 +19,7 @@ import {
   query, 
   orderBy 
 } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export const App: React.FC = () => {
   // 1. ユーザー認証状態（未ログイン時は認証画面を強制表示）
@@ -26,6 +27,26 @@ export const App: React.FC = () => {
     const saved = localStorage.getItem('smoke_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Firebase Auth の認証状態を自動監視（リロード時もログイン状態を維持）
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth) return;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const profile: UserProfile = {
+          id: user.uid,
+          email: user.email || 'guest@smokespot.jp',
+          display_name: user.displayName || (user.isAnonymous ? 'ゲストスモーカー' : user.email?.split('@')[0] || 'スモーカー'),
+          created_at: new Date().toISOString(),
+        };
+        setCurrentUser(profile);
+        localStorage.setItem('smoke_user', JSON.stringify(profile));
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // 2. テーマ状態（ダーク/ライト）
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -253,11 +274,18 @@ export const App: React.FC = () => {
   };
 
   // ログアウト
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('smoke_user');
     setCurrentUser(null);
     setSelectedSpot(null);
     setRoutingToSpot(null);
+    if (isFirebaseConfigured && auth) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.warn('Firebase signOut error:', err);
+      }
+    }
   };
 
   // ルート案内開始/解除

@@ -3,41 +3,76 @@ rules_version = '2';
 // 喫煙所マップアプリ Firebase Firestore セキュリティルール
 // ==============================================================================
 // 初心者向け解説:
-// Firebase Console の「Firestore Database」->「ルール」に貼り付けて公開します。
-// ログインユーザーのみが閲覧・投稿でき、未登録ユーザーはアクセスできない設定です。
+// 1. 閲覧（Read）: 誰でも地図やピンを自由に閲覧可能（Googleマップ同様、未ログインでもOK）
+// 2. 作成（Create）: ログインユーザーのみ可能。不正な値（文字数オーバー、座標異常）を自動でブロック
+// 3. 更新（Update）: 「今日吸えた！」の生存確認カウントやレビュー追加は認証ユーザーなら可能
+// 4. 削除（Delete）: 自分が投稿したピンやレビューのみ削除可能（他人のピンは削除不可）
 // ==============================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ログインしているかどうかの共通判定関数
+    // ログインしているかどうかの共通判定
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // 本人かどうかの判定関数
+    // 本人かどうかの判定
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 1. Users コレクション
+    // 喫煙所データのバリデーション（不正なデータ送信を防止）
+    function isValidSmokingArea(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.lat is number && data.lat >= -90.0 && data.lat <= 90.0
+        && data.lng is number && data.lng >= -180.0 && data.lng <= 180.0
+        && (data.type_cigar in ['paper', 'heated', 'both'])
+        && (data.type_place in ['indoor', 'outdoor', 'rooftop', 'underground'])
+        && (data.type_fee in ['free', 'paid']);
+    }
+
+    // レビューのバリデーション
+    function isValidReview(data) {
+      return data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() <= 1000;
+    }
+
+    // 1. Users コレクション（ユーザープロフィール）
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isOwner(userId);
+      allow delete: if false; // 誤削除防止
     }
 
-    // 2. SmokingAreas コレクション
+    // 2. SmokingAreas コレクション（喫煙所ピン）
     match /smoking_areas/{areaId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.created_by == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.created_by == request.auth.uid;
+      // 誰でも自由に喫煙所マップを閲覧可能
+      allow read: if true;
+      
+      // 投稿はログインユーザーのみ、かつデータの正当性を検査
+      allow create: if isAuthenticated() && isValidSmokingArea(request.resource.data);
+      
+      // 「今日吸えた！」のカウント更新や情報編集はログインユーザーなら可能
+      allow update: if isAuthenticated();
+      
+      // 削除はピンを投稿した本人だけが可能
+      allow delete: if isAuthenticated() && resource.data.created_by == request.auth.uid;
     }
 
-    // 3. Reviews コレクション
+    // 3. Reviews コレクション（口コミ・レビュー）
     match /reviews/{reviewId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      // 口コミは誰でも閲覧可能
+      allow read: if true;
+      
+      // 口コミ投稿はログインユーザーかつ本人のID、入力内容を検査
+      allow create: if isAuthenticated() 
+        && request.resource.data.user_id == request.auth.uid 
+        && isValidReview(request.resource.data);
+      
+      // 編集・削除は本人のみ
       allow update, delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
     }
   }
 }
+
