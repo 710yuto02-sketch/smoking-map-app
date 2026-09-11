@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Cigarette, Mail, Lock, User, ArrowRight, ShieldCheck } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { auth, isFirebaseConfigured } from '../../lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  updateProfile 
+} from 'firebase/auth';
 import type { UserProfile } from '../../types/database';
 
 interface AuthModalProps {
@@ -21,47 +26,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      if (isSupabaseConfigured && supabase) {
+      if (isFirebaseConfigured && auth) {
         if (isSignUp) {
-          // 新規登録
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                display_name: displayName || email.split('@')[0],
-              },
-            },
-          });
-          if (error) throw error;
-          if (data.user) {
-            onLoginSuccess({
-              id: data.user.id,
-              email: data.user.email || email,
-              display_name: displayName || email.split('@')[0],
-              created_at: new Date().toISOString(),
-            });
+          // Firebase 新規登録
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          if (displayName && userCredential.user) {
+            await updateProfile(userCredential.user, { displayName });
           }
+          const user = userCredential.user;
+          onLoginSuccess({
+            id: user.uid,
+            email: user.email || email,
+            display_name: displayName || user.email?.split('@')[0] || 'スモーカー',
+            created_at: new Date().toISOString(),
+          });
         } else {
-          // ログイン
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
+          // Firebase ログイン
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          onLoginSuccess({
+            id: user.uid,
+            email: user.email || email,
+            display_name: user.displayName || user.email?.split('@')[0] || 'スモーカー',
+            created_at: new Date().toISOString(),
           });
-          if (error) throw error;
-          if (data.user) {
-            onLoginSuccess({
-              id: data.user.id,
-              email: data.user.email || email,
-              display_name: data.user.user_metadata?.display_name || email.split('@')[0],
-              created_at: data.user.created_at,
-            });
-          }
         }
       } else {
         // デモモード（APIキー未設定でもすぐにお試し可能）
         const mockUser: UserProfile = {
-          id: 'demo-user-' + Math.random().toString(36).substr(2, 9),
+          id: 'demo-user-' + Math.random().toString(36).substring(2, 9),
           email: email || 'guest@smokespot.com',
           display_name: displayName || (email ? email.split('@')[0] : 'ゲストスモーカー'),
           created_at: new Date().toISOString(),
@@ -70,6 +63,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         onLoginSuccess(mockUser);
       }
     } catch (err: any) {
+      console.warn('Auth error:', err);
       setErrorMsg(err.message || '認証に失敗しました。入力内容をお確かめください。');
     } finally {
       setLoading(false);

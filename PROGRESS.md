@@ -39,10 +39,11 @@
    - 屋外の直射日光下でも見やすい高コントラストなライトモードと、夜間用のダークモードをワンタップで切り替え可能。
    - スマホの画面サイズや片手操作（親指で押しやすいフローティング配置）に最適化。
 
-### ⏳ 今後拡張可能な項目（次のステップ）
-- 実際の Supabase / Firebase 本番環境とのリアルタイム同期（現在はlocalStorageおよびモックデータで即座にフル動作可能）。
-- Google Cloud Console での正規APIキー取得と本番ドメイン制限の設定。
-- PWA（Progressive Web App）としてのマニフェスト設定（アプリアイコンの追加）。
+- **バックエンド / データベース**: **Firebase (Firestore + Authentication + Storage)** に完全対応。
+  - Firestore コレクション（`smoking_areas`, `reviews`）のリアルタイム自動監視（`onSnapshot`）を実装。誰かがピンを立てたり「今日吸えた！」を押すと即座に全員の画面に自動反映されます。
+  - Firebase Authentication によるメール/パスワード認証およびゲストログイン。
+  - セキュリティルールは [firestore.rules](file:///c:/Users/y-kurita.DAIKYO/.gemini/antigravity-ide/scratch/smoking/firebase/firestore.rules) に定義済み。
+  - （※環境変数未設定時でもローカルストレージにより即座にフル体験できるハイブリッドフォールバックを維持）
 
 ---
 

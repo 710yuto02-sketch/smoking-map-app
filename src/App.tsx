@@ -8,6 +8,17 @@ import { FilterBar } from './components/filter/FilterBar';
 import { SmokingMap } from './components/map/SmokingMap';
 import { NewSpotModal } from './components/post/NewSpotModal';
 import { SpotDetailDrawer } from './components/drawer/SpotDetailDrawer';
+import { db, isFirebaseConfigured } from './lib/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  increment, 
+  query, 
+  orderBy 
+} from 'firebase/firestore';
 
 export const App: React.FC = () => {
   // 1. ユーザー認証状態（未ログイン時は認証画面を強制表示）
@@ -73,24 +84,80 @@ export const App: React.FC = () => {
     });
   }, [smokingAreas, filter]);
 
+  // Firestore リアルタイム同期（Firebase設定時）
+  useEffect(() => {
+    if (!isFirebaseConfigured || !db) return;
+
+    // 喫煙所一覧のリアルタイム監視
+    const qSpots = query(collection(db, 'smoking_areas'), orderBy('created_at', 'desc'));
+    const unsubSpots = onSnapshot(qSpots, (snapshot) => {
+      const docs: SmokingArea[] = [];
+      snapshot.forEach((d) => {
+        docs.push({ id: d.id, ...(d.data() as Omit<SmokingArea, 'id'>) });
+      });
+      if (docs.length > 0) {
+        setSmokingAreas(docs);
+        localStorage.setItem('smoke_spots', JSON.stringify(docs));
+      }
+    }, (err) => console.warn('Firestore spots error:', err));
+
+    // レビュー一覧のリアルタイム監視
+    const qReviews = query(collection(db, 'reviews'), orderBy('created_at', 'desc'));
+    const unsubReviews = onSnapshot(qReviews, (snapshot) => {
+      const revs: Review[] = [];
+      snapshot.forEach((d) => {
+        revs.push({ id: d.id, ...(d.data() as Omit<Review, 'id'>) });
+      });
+      if (revs.length > 0) {
+        setReviews(revs);
+        localStorage.setItem('smoke_reviews', JSON.stringify(revs));
+      }
+    }, (err) => console.warn('Firestore reviews error:', err));
+
+    return () => {
+      unsubSpots();
+      unsubReviews();
+    };
+  }, []);
+
   // 新規喫煙所の追加処理
-  const handleAddNewSpot = (newAreaData: Omit<SmokingArea, 'id' | 'created_at'>) => {
+  const handleAddNewSpot = async (newAreaData: Omit<SmokingArea, 'id' | 'created_at'>) => {
     const newArea: SmokingArea = {
       ...newAreaData,
       id: 'spot-' + Date.now(),
       created_by: currentUser?.id,
       created_at: new Date().toISOString(),
+      verified_count: 1,
+      last_verified_at: 'たった今',
+      closed_report_count: 0,
     };
 
+    // ローカル即時反映
     const updated = [newArea, ...smokingAreas];
     setSmokingAreas(updated);
     localStorage.setItem('smoke_spots', JSON.stringify(updated));
     setNewSpotCoords(null);
-    setSelectedSpot(newArea); // 投稿直後にそのピンを選択して開く
+    setSelectedSpot(newArea);
+
+    // Firestore へ保存（Firebase設定時）
+    if (isFirebaseConfigured && db) {
+      try {
+        await addDoc(collection(db, 'smoking_areas'), {
+          ...newAreaData,
+          created_by: currentUser?.id || null,
+          created_at: new Date().toISOString(),
+          verified_count: 1,
+          last_verified_at: 'たった今',
+          closed_report_count: 0,
+        });
+      } catch (err) {
+        console.warn('Firestore addDoc failed:', err);
+      }
+    }
   };
 
   // レビュー追加処理
-  const handleAddReview = (reviewData: Omit<Review, 'id' | 'created_at'>) => {
+  const handleAddReview = async (reviewData: Omit<Review, 'id' | 'created_at'>) => {
     const newReview: Review = {
       ...reviewData,
       id: 'rev-' + Date.now(),
@@ -100,10 +167,22 @@ export const App: React.FC = () => {
     const updated = [newReview, ...reviews];
     setReviews(updated);
     localStorage.setItem('smoke_reviews', JSON.stringify(updated));
+
+    // Firestore へ保存（Firebase設定時）
+    if (isFirebaseConfigured && db) {
+      try {
+        await addDoc(collection(db, 'reviews'), {
+          ...reviewData,
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn('Firestore review addDoc failed:', err);
+      }
+    }
   };
 
   // 生存確認（今日ここで吸えた！）の更新処理
-  const handleVerifySpot = (spotId: string) => {
+  const handleVerifySpot = async (spotId: string) => {
     const updated = smokingAreas.map((area) => {
       if (area.id === spotId) {
         return {
@@ -125,10 +204,22 @@ export const App: React.FC = () => {
         last_verified_at: 'たった今',
       });
     }
+
+    // Firestore へ更新（Firebase設定時）
+    if (isFirebaseConfigured && db && !spotId.startsWith('spot-')) {
+      try {
+        await updateDoc(doc(db, 'smoking_areas', spotId), {
+          verified_count: increment(1),
+          last_verified_at: 'たった今',
+        });
+      } catch (err) {
+        console.warn('Firestore updateDoc verify failed:', err);
+      }
+    }
   };
 
   // 撤去・閉鎖の通報処理
-  const handleReportClosed = (spotId: string) => {
+  const handleReportClosed = async (spotId: string) => {
     const updated = smokingAreas.map((area) => {
       if (area.id === spotId) {
         return {
@@ -147,6 +238,17 @@ export const App: React.FC = () => {
         ...selectedSpot,
         closed_report_count: (selectedSpot.closed_report_count || 0) + 1,
       });
+    }
+
+    // Firestore へ更新（Firebase設定時）
+    if (isFirebaseConfigured && db && !spotId.startsWith('spot-')) {
+      try {
+        await updateDoc(doc(db, 'smoking_areas', spotId), {
+          closed_report_count: increment(1),
+        });
+      } catch (err) {
+        console.warn('Firestore updateDoc report failed:', err);
+      }
     }
   };
 
