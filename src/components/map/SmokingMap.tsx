@@ -668,9 +668,15 @@ const InteractiveGoogleStyleFallbackMap: React.FC<FallbackProps> = ({
                   whiteSpace: 'nowrap',
                   marginBottom: '4px',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
-                {spot.name}
+                <span>{spot.name}</span>
+                {spot.floor_level && (
+                  <span style={{ color: '#fde047', fontSize: '10px' }}>[{spot.floor_level}]</span>
+                )}
               </div>
             )}
 

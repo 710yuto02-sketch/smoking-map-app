@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, MapPin, Flame, Wind, Home, Trees, Coins, DollarSign, Check, Plus } from 'lucide-react';
+import { X, Camera, MapPin, Flame, Wind, Home, Trees, Coins, DollarSign, Check, Plus, Building2 } from 'lucide-react';
 import type { CigarType, PlaceType, FeeType, SmokingArea } from '../../types/database';
 
 interface NewSpotModalProps {
@@ -19,6 +19,7 @@ export const NewSpotModal: React.FC<NewSpotModalProps> = ({
   const [cigarType, setCigarType] = useState<CigarType>('both');
   const [placeType, setPlaceType] = useState<PlaceType>('outdoor');
   const [feeType, setFeeType] = useState<FeeType>('free');
+  const [floorLevel, setFloorLevel] = useState('1F (路面・地上)');
   const [description, setDescription] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -44,6 +45,7 @@ export const NewSpotModal: React.FC<NewSpotModalProps> = ({
       type_cigar: cigarType,
       type_place: placeType,
       type_fee: feeType,
+      floor_level: floorLevel,
       description: description.trim(),
       photo_url: photoPreview || undefined,
     });
@@ -305,6 +307,51 @@ export const NewSpotModal: React.FC<NewSpotModalProps> = ({
                 <DollarSign size={18} />
                 <span>有料（カフェ・要注文等）</span>
               </button>
+            </div>
+          </div>
+
+          {/* 4. 設置フロア階数（迷子防止ワンタップ選択） */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Building2 size={16} style={{ color: 'var(--accent-emerald)' }} />
+                <span>設置フロア・階数</span> <span style={{ color: 'var(--accent-emerald)' }}>*</span>
+              </label>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>迷子防止</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {[
+                '1F (路面・地上)',
+                'B1F (地下1階)',
+                'B2F (地下2階)',
+                '2F',
+                '3F以上',
+                '屋上・テラス',
+              ].map((opt) => {
+                const isSelected = floorLevel === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setFloorLevel(opt)}
+                    style={{
+                      padding: '10px 6px',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected ? '2px solid var(--accent-emerald)' : '1px solid var(--border-medium)',
+                      backgroundColor: isSelected ? 'var(--accent-emerald-light)' : 'var(--bg-app)',
+                      color: isSelected ? 'var(--accent-emerald-dark)' : 'var(--text-primary)',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

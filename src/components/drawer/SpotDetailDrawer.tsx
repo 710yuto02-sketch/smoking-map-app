@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import type { SmokingArea, Review, UserProfile, RouteInfo } from '../../types/database';
 import { 
   X, Navigation, Flame, Wind, Home, Trees, Coins, DollarSign, 
-  Star, MessageSquare, Camera, User, CornerUpRight, ExternalLink 
+  Star, MessageSquare, Camera, User, CornerUpRight, ExternalLink,
+  ThumbsUp, Building2, AlertTriangle, CheckCircle2, Clock
 } from 'lucide-react';
 
 interface SpotDetailDrawerProps {
@@ -14,6 +15,8 @@ interface SpotDetailDrawerProps {
   onClose: () => void;
   onNavigate: () => void;
   onAddReview: (review: Omit<Review, 'id' | 'created_at'>) => void;
+  onVerifySpot?: (spotId: string) => void;
+  onReportClosed?: (spotId: string) => void;
 }
 
 export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
@@ -25,6 +28,8 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
   onClose,
   onNavigate,
   onAddReview,
+  onVerifySpot,
+  onReportClosed,
 }) => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(5);
@@ -161,6 +166,27 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
           </span>
         </div>
 
+        {/* 設置フロア階数バッジ（迷子防止） */}
+        {spot.floor_level && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-pill)',
+              fontSize: '12px',
+              fontWeight: 800,
+              backgroundColor: '#fef3c7',
+              color: '#b45309',
+              border: '1px solid #fcd34d',
+            }}
+          >
+            <Building2 size={14} />
+            <span>{spot.floor_level}</span>
+          </div>
+        )}
+
         {/* 場所タイプ */}
         <div
           style={{
@@ -195,6 +221,95 @@ export const SpotDetailDrawer: React.FC<SpotDetailDrawerProps> = ({
         >
           {spot.type_fee === 'free' ? <Coins size={14} /> : <DollarSign size={14} />}
           <span>{spot.type_fee === 'free' ? '無料' : '有料（カフェ・要注文）'}</span>
+        </div>
+      </div>
+
+      {/* ① 生存確認・鮮度カード（愛煙家の無駄足ゼロへ） */}
+      <div
+        className="glass-panel"
+        style={{
+          padding: '12px 14px',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          border: spot.closed_report_count && spot.closed_report_count > 0 
+            ? '1px solid var(--accent-danger)' 
+            : '1px solid #10b981',
+          backgroundColor: spot.closed_report_count && spot.closed_report_count > 0 
+            ? 'rgba(239, 68, 68, 0.05)' 
+            : 'rgba(16, 185, 129, 0.05)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {spot.closed_report_count && spot.closed_report_count > 0 ? (
+              <AlertTriangle size={16} style={{ color: 'var(--accent-danger)' }} />
+            ) : (
+              <CheckCircle2 size={16} style={{ color: '#10b981' }} />
+            )}
+            <span style={{ fontSize: '12px', fontWeight: 800 }}>
+              {spot.closed_report_count && spot.closed_report_count > 0 ? (
+                <span style={{ color: 'var(--accent-danger)' }}>撤去・閉鎖の報告があります</span>
+              ) : (
+                <span style={{ color: '#047857' }}>
+                  実在確認済み（生存確認 {spot.verified_count || 1}回）
+                </span>
+              )}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <Clock size={12} />
+            <span>最終確認: {spot.last_verified_at || '最近'}</span>
+          </div>
+        </div>
+
+        {/* ワンタップ生存確認アクションボタン */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => onVerifySpot && onVerifySpot(spot.id)}
+            style={{
+              flex: 1,
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: '#10b981',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <ThumbsUp size={14} />
+            <span>👍 今日ここで吸えた！</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onReportClosed && onReportClosed(spot.id)}
+            style={{
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--bg-app)',
+              border: '1px solid var(--border-medium)',
+              color: 'var(--text-secondary)',
+              fontSize: '11px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+            }}
+          >
+            <AlertTriangle size={13} style={{ color: 'var(--text-muted)' }} />
+            <span>撤去を通報</span>
+          </button>
         </div>
       </div>
 

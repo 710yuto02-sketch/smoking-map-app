@@ -26,10 +26,14 @@ CREATE TABLE IF NOT EXISTS public.smoking_areas (
   type_cigar TEXT CHECK (type_cigar IN ('paper', 'heated', 'both')) NOT NULL, -- paper: 紙タバコ, heated: 加熱式専用, both: 両方可
   type_place TEXT CHECK (type_place IN ('indoor', 'outdoor')) NOT NULL,       -- indoor: 屋内, outdoor: 屋外
   type_fee TEXT CHECK (type_fee IN ('free', 'paid')) NOT NULL,                -- free: 無料, paid: 有料（カフェ等）
+  floor_level TEXT DEFAULT '1F (路面)',                    -- 設置フロア (1F, B1F, B2F, 2F, 屋上など)
   description TEXT,                                        -- 補足メモ（灰皿の数など）
   photo_url TEXT,                                          -- 代表写真URL
   created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- 投稿者
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_verified_at TIMESTAMPTZ DEFAULT NOW(),              -- 直近の利用確認日時（生存確認）
+  verified_count INTEGER DEFAULT 1,                        -- 利用確認（吸えた報告）カウント
+  closed_report_count INTEGER DEFAULT 0                    -- 撤去・閉鎖通報カウント
 );
 
 -- 3. レビュー・写真情報テーブル (Reviews / reviews)

@@ -24,11 +24,15 @@ export interface SmokingArea {
   type_cigar: CigarType;
   type_place: PlaceType;
   type_fee: FeeType;
+  floor_level?: string; // 設置フロア (例: '1F (路面)', 'B1F', 'B2F', '2F', '屋上' など)
   description?: string;
   photo_url?: string;
   created_by?: string;
   created_at: string;
   distance_m?: number; // 現在地からの推定距離（メートル）
+  last_verified_at?: string; // 最終利用確認日時 (生存確認)
+  verified_count?: number;    // 今日・直近で吸えたと報告された回数
+  closed_report_count?: number; // 撤去・閉鎖が通報された回数
 }
 
 // 3. レビュー型

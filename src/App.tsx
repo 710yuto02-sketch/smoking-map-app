@@ -102,6 +102,54 @@ export const App: React.FC = () => {
     localStorage.setItem('smoke_reviews', JSON.stringify(updated));
   };
 
+  // 生存確認（今日ここで吸えた！）の更新処理
+  const handleVerifySpot = (spotId: string) => {
+    const updated = smokingAreas.map((area) => {
+      if (area.id === spotId) {
+        return {
+          ...area,
+          verified_count: (area.verified_count || 0) + 1,
+          last_verified_at: 'たった今',
+        };
+      }
+      return area;
+    });
+
+    setSmokingAreas(updated);
+    localStorage.setItem('smoke_spots', JSON.stringify(updated));
+
+    if (selectedSpot && selectedSpot.id === spotId) {
+      setSelectedSpot({
+        ...selectedSpot,
+        verified_count: (selectedSpot.verified_count || 0) + 1,
+        last_verified_at: 'たった今',
+      });
+    }
+  };
+
+  // 撤去・閉鎖の通報処理
+  const handleReportClosed = (spotId: string) => {
+    const updated = smokingAreas.map((area) => {
+      if (area.id === spotId) {
+        return {
+          ...area,
+          closed_report_count: (area.closed_report_count || 0) + 1,
+        };
+      }
+      return area;
+    });
+
+    setSmokingAreas(updated);
+    localStorage.setItem('smoke_spots', JSON.stringify(updated));
+
+    if (selectedSpot && selectedSpot.id === spotId) {
+      setSelectedSpot({
+        ...selectedSpot,
+        closed_report_count: (selectedSpot.closed_report_count || 0) + 1,
+      });
+    }
+  };
+
   // ログアウト
   const handleLogout = () => {
     localStorage.removeItem('smoke_user');
@@ -186,6 +234,8 @@ export const App: React.FC = () => {
           }}
           onNavigate={handleToggleRoute}
           onAddReview={handleAddReview}
+          onVerifySpot={handleVerifySpot}
+          onReportClosed={handleReportClosed}
         />
       )}
     </div>
